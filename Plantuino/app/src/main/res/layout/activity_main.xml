@@ -30,9 +30,16 @@
             android:layout_weight="1"
             android:orientation="vertical">
 
+            <Button
+                android:id="@+id/btnDesconectarBluetooth"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Desconectar Bluetooth" />
+
             <Space
                 android:layout_width="match_parent"
-                android:layout_height="30dp"
+                android:layout_height="10dp"
                 android:layout_weight="1" />
 
             <TextView
@@ -50,7 +57,7 @@
 
             <Space
                 android:layout_width="match_parent"
-                android:layout_height="20dp"
+                android:layout_height="10dp"
                 android:layout_weight="1" />
 
         </LinearLayout>
