@@ -1,6 +1,7 @@
 package com.plantuino.unlam_soa.plantuino;
 
 import android.content.Intent;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.bluetooth.*;
 import android.support.v7.app.AppCompatActivity;
@@ -23,6 +24,7 @@ public class ManejadorBluetoothActivity extends AppCompatActivity{
 
     protected void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.manejador_bluetooth_activity);
 
         btnDispositivosBluetooth = (Button)findViewById(R.id.btnDispositivosBluetooth);
 
@@ -40,30 +42,21 @@ public class ManejadorBluetoothActivity extends AppCompatActivity{
             }
         }
 
-        btnDispositivosBluetooth.setOnClickListener(botonesListener);
+        btnDispositivosBluetooth.setOnClickListener( new View.OnClickListener(){
+            public void onClick(View v){listarDispositivosBluetooth();}
+        });
     }
-
-    private View.OnClickListener botonesListener= new View.OnClickListener(){
-
-        public void onClick(View v){
-            switch (v.getId()){
-                case R.id.btnDispositivosBluetooth:
-                    listarDispositivosBluetooth();
-                    break;
-                default:
-                    Toast.makeText(getApplicationContext(),"Error ocurrido en Listener de botones",Toast.LENGTH_LONG).show();
-            }
-        }
-
-    };
 
     private void listarDispositivosBluetooth(){
         //Verificamos si existe algun dispositivo sincronizado
+        Toast.makeText(getApplicationContext(), "Accedio a funcion listarDispositivosBluetooth", Toast.LENGTH_SHORT).show();
         Set<BluetoothDevice> dispositivosBluetoothSincronizados = bluetoothAdapter.getBondedDevices();
+        Toast.makeText(getApplicationContext(),"Obtuvo los dispositivos sincronizados", Toast.LENGTH_SHORT).show();
         ArrayList listaDispositivosBluetoothSincronizados = new ArrayList();
         if(dispositivosBluetoothSincronizados.size() > 0){
             for(BluetoothDevice dispositivo : dispositivosBluetoothSincronizados){
                 //A cada dispositivo sincronizado lo agrego a mi lista de dispositivos Bluetooth mediante nombre y direccion MAC del dispositivo
+                Toast.makeText(getApplicationContext(),"Agrego dispositivo " + dispositivo.getName() + " : " + dispositivo.getAddress(),Toast.LENGTH_LONG);
                 listaDispositivosBluetoothSincronizados.add(dispositivo.getName() + "\n" + dispositivo.getAddress());
             }
         } else {
@@ -73,11 +66,14 @@ public class ManejadorBluetoothActivity extends AppCompatActivity{
         //Armo lista de dispositivos Bluetooth sincronizados
         final ArrayAdapter dispositivosBluetoothAdapter = new ArrayAdapter(this,android.R.layout.simple_list_item_1, listaDispositivosBluetoothSincronizados);
         listaDispositivosBluetooth.setAdapter(dispositivosBluetoothAdapter);
+        Toast.makeText(getApplicationContext(),"Seteo de adaptador",Toast.LENGTH_SHORT).show();
         listaDispositivosBluetooth.setOnItemClickListener(listViewListener);
+        Toast.makeText(getApplicationContext(), "Seteo item click listener",Toast.LENGTH_SHORT).show();
     }
 
     private AdapterView.OnItemClickListener listViewListener = new AdapterView.OnItemClickListener(){
         public void onItemClick (AdapterView<?> av, View v, int arg2, long arg3){
+            Toast.makeText(getApplicationContext(),"Click sobre item de la list view", Toast.LENGTH_SHORT).show();
             //Obtengo la direccion MAC del item seleccionado, los ultimos 17 caracteres del item corresponden a la direccion MAC
             String info = ((TextView) v).getText().toString();
             String direccion = info.substring(info.length()-17);
