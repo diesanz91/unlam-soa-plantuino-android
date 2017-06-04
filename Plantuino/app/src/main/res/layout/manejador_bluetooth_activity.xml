@@ -8,4 +8,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Ver Dispositivos Bluetooth" />
+
+    <ListView
+        android:id="@+id/listViewDispositivos"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
 </LinearLayout>

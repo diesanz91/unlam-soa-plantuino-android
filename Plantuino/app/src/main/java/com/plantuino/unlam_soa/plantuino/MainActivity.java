@@ -48,13 +48,12 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
 
         Intent intent = getIntent();
 
         //Obtenemos direccion MAC del dispositivo Bluetooth seleccionado de la lista
         direccion = intent.getStringExtra(ManejadorBluetoothActivity.EXTRA_ADDRESS);
-
-        setContentView(R.layout.activity_main);
 
         //Obtengo los diversos componentes de la vista
         btnDesconectarBluetooth = (Button)findViewById(R.id.btnDesconectarBluetooth);
@@ -182,35 +181,73 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 case R.id.btnVentilacion:
                     if(txtBtnVentilacion.compareToIgnoreCase("ENCENDER") == 0){
-                        txtBtnVentilacion = "APAGAR";
-                        btnVentilacion.setText(txtBtnVentilacion);
-                        Toast.makeText(getApplicationContext(),"Ventilación Encendida",Toast.LENGTH_LONG).show();
-                    }else{
-                        txtBtnVentilacion = "ENCENDER";
-                        btnVentilacion.setText(txtBtnVentilacion);
-                        Toast.makeText(getApplicationContext(),"Ventilación Apagada",Toast.LENGTH_SHORT).show();
+                        if(bluetoothSocket != null){
+                            try{
+                                bluetoothSocket.getOutputStream().write("V".toString().getBytes());
+                                txtBtnVentilacion = "APAGAR";
+                                btnVentilacion.setText(txtBtnVentilacion);
+                                Toast.makeText(getApplicationContext(),"Ventilación Encendida",Toast.LENGTH_LONG).show();
+                            } catch (IOException ioExc){
+                                Toast.makeText(getApplicationContext(),"Error al encender ventilación",Toast.LENGTH_LONG).show();
+                            }
+                        }
+                    } else {
+                        if(bluetoothSocket != null){
+                            try{
+                                bluetoothSocket.getOutputStream().write("v".toString().getBytes());
+                                txtBtnVentilacion = "ENCENDER";
+                                btnVentilacion.setText(txtBtnVentilacion);
+                                Toast.makeText(getApplicationContext(),"Ventilación Apagada",Toast.LENGTH_SHORT).show();
+                            } catch(IOException ioExc){
+                                Toast.makeText(getApplicationContext(),"Error al apagar ventilación",Toast.LENGTH_SHORT).show();
+                            }
+                        }
                     }
                     break;
                 case R.id.btnIluminacion:
                     if(txtBtnIluminacion.compareToIgnoreCase("ENCENDER") == 0){
-                        txtBtnIluminacion = "APAGAR";
-                        btnIluminacion.setText(txtBtnIluminacion);
-                        Toast.makeText(getApplicationContext(),"Iluminación Encendida",Toast.LENGTH_SHORT).show();
-                    }else{
-                        txtBtnIluminacion = "ENCENDER";
-                        btnIluminacion.setText(txtBtnIluminacion);
-                        Toast.makeText(getApplicationContext(), "Iluminación Apagada", Toast.LENGTH_SHORT).show();
+                        if(bluetoothSocket != null){
+                            try{
+                                bluetoothSocket.getOutputStream().write("I".toString().getBytes());
+                                txtBtnIluminacion = "APAGAR";
+                                btnIluminacion.setText(txtBtnIluminacion);
+                                Toast.makeText(getApplicationContext(),"Iluminación Encendida",Toast.LENGTH_SHORT).show();
+                            } catch(IOException ioExc){
+                                Toast.makeText(getApplicationContext(),"Error al encender iluminación",Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    } else {
+                        if(bluetoothSocket != null){
+                            try{
+                                bluetoothSocket.getOutputStream().write("i".toString().getBytes());
+                                txtBtnIluminacion = "ENCENDER";
+                                btnIluminacion.setText(txtBtnIluminacion);
+                                Toast.makeText(getApplicationContext(), "Iluminación Apagada", Toast.LENGTH_SHORT).show();
+                            } catch (IOException ioExc){
+                                Toast.makeText(getApplicationContext(),"Error al encender iluminación",Toast.LENGTH_SHORT).show();
+                            }
+                        }
                     }
                     break;
                 case R.id.btnHidratacion:
                     if(txtBtnHidratacion.compareToIgnoreCase("ENCENDER") == 0){
-                        txtBtnHidratacion = "APAGAR";
-                        btnHidratacion.setText(txtBtnHidratacion);
-                        Toast.makeText(getApplicationContext(),"Hidratación Encendida",Toast.LENGTH_SHORT).show();
-                    }else{
-                        txtBtnHidratacion = "ENCENDER";
-                        btnHidratacion.setText(txtBtnHidratacion);
-                        Toast.makeText(getApplicationContext(),"Hidratación Apagada",Toast.LENGTH_SHORT).show();
+                        try{
+                            bluetoothSocket.getOutputStream().write("H".toString().getBytes());
+                            txtBtnHidratacion = "APAGAR";
+                            btnHidratacion.setText(txtBtnHidratacion);
+                            Toast.makeText(getApplicationContext(),"Hidratación Encendida",Toast.LENGTH_SHORT).show();
+                        } catch (IOException ioExc){
+                            Toast.makeText(getApplicationContext(),"Error al encender hidratación",Toast.LENGTH_SHORT).show();
+                        }
+                    } else {
+                        try{
+                            bluetoothSocket.getOutputStream().write("h".toString().getBytes());
+                            txtBtnHidratacion = "ENCENDER";
+                            btnHidratacion.setText(txtBtnHidratacion);
+                            Toast.makeText(getApplicationContext(),"Hidratación Apagada",Toast.LENGTH_SHORT).show();
+                        } catch (IOException ioExc){
+                            Toast.makeText(getApplicationContext(),"Error al apagar hidratación",Toast.LENGTH_SHORT).show();
+                        }
                     }
                     break;
                 case R.id.btnObtenerDatos:
