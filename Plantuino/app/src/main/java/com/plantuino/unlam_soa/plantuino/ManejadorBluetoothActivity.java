@@ -82,7 +82,6 @@ public class ManejadorBluetoothActivity extends AppCompatActivity{
             Toast.makeText(getApplicationContext(),"No se encontraron dispositivos bluetooth sincronizados",Toast.LENGTH_LONG).show();
         }
 
-
     }
 
     private AdapterView.OnItemClickListener listViewListener = new AdapterView.OnItemClickListener(){

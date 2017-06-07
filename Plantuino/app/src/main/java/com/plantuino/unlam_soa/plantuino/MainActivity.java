@@ -2,8 +2,14 @@ package com.plantuino.unlam_soa.plantuino;
 
 import android.app.ProgressDialog;
 import android.content.Intent;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.speech.tts.TextToSpeech;
+import android.support.annotation.RequiresApi;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
@@ -16,14 +22,16 @@ import android.content.ActivityNotFoundException;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.UUID;
 
 import android.bluetooth.*;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements SensorEventListener {
 
     private static final int RECOGNIZE_SPEECH_ACTIVITY = 1;
     private String voz;
+    private TextToSpeech speech;
     private String direccion = null;
     private ProgressDialog progreso;
     private BluetoothAdapter bluetoothAdapter = null;
@@ -50,9 +58,29 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        //Inicialización de objetos para sensor de proximidad
+        SensorManager sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        Sensor sensorProximidad = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
+        if(sensorManager != null && sensorProximidad != null){
+            //Registro listener al sensor de proximidad
+            sensorManager.registerListener(this,sensorProximidad,SensorManager.SENSOR_DELAY_NORMAL);
+        } else {
+            Toast.makeText(getApplicationContext(),"Ocurrio un error al obtener sensor de proximidad",Toast.LENGTH_SHORT);
+        }
+
+        //Inicialización de objetos para speech de datos de sensores obtenidos
+        speech = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener(){
+            public void onInit(int status){
+                if(status != TextToSpeech.ERROR){
+                    //Seteo lenguaje
+                    speech.setLanguage(Locale.UK);
+                }
+            }
+        });
+
         Intent intent = getIntent();
 
-        //Obtenemos direccion MAC del dispositivo Bluetooth seleccionado de la lista
+        //Obtengo direccion MAC del dispositivo Bluetooth seleccionado de la lista
         direccion = intent.getStringExtra(ManejadorBluetoothActivity.EXTRA_ADDRESS);
 
         //Obtengo los diversos componentes de la vista
@@ -80,8 +108,34 @@ public class MainActivity extends AppCompatActivity {
         btnLimpiarDatos.setOnClickListener(botonesListener);
 
         //Ejecutamos conexion Bluetooth
-        new conexionBluetooth().execute();
+        //new conexionBluetooth().execute();
 
+    }
+
+    //Implemento métodos de la clase SensorEventListener
+    public void onAccuracyChanged(Sensor sensor, int precision) {}
+
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    public void onSensorChanged(SensorEvent evento){
+        //Cada sensor puede provocar que un thread principal pase por este bloque de codigo asi que sincronizamos el acceso
+        synchronized (this){
+            switch (evento.sensor.getType()){
+                case Sensor.TYPE_PROXIMITY:
+                    if(evento.values[0] != 0){
+                        contentTxtDatosSensores = "Detección proximidad";
+                        editTextDatosSensores.setText(contentTxtDatosSensores);
+                    } else{
+                        contentTxtDatosSensores = "Sin detección de proximidad";
+                        editTextDatosSensores.setText(contentTxtDatosSensores);
+                        //En este caso solicito datos sensores a la placa y reproduzco audio con los datos
+                        contentTxtDatosSensores = "Light: 54612 lx\nTemperature: 24.70 °C\nAbsolute Pressure: 1017.34 mb\nRelative Pressure: 1242.51 mb\nHumidity: 51.70 %\n";
+                        speech.speak(contentTxtDatosSensores, TextToSpeech.QUEUE_FLUSH,null,"Datos Sensores");
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
     }
 
     private class conexionBluetooth extends AsyncTask<Void, Void, Void>{
