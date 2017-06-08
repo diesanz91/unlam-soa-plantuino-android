@@ -60,12 +60,21 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         //Inicialización de objetos para sensor de proximidad
         SensorManager sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-        Sensor sensorProximidad = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
-        if(sensorManager != null && sensorProximidad != null){
+        if(sensorManager != null){
+            Sensor sensorProximidad = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
             //Registro listener al sensor de proximidad
             sensorManager.registerListener(this,sensorProximidad,SensorManager.SENSOR_DELAY_NORMAL);
         } else {
             Toast.makeText(getApplicationContext(),"Ocurrio un error al obtener sensor de proximidad",Toast.LENGTH_SHORT);
+        }
+
+        //Inicialización de objetos para sensor acelerometro
+        if (sensorManager != null){
+            Sensor sensorAcelerometro = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+            //Registro listener al sensor acelerometro
+            sensorManager.registerListener(this,sensorAcelerometro,SensorManager.SENSOR_DELAY_NORMAL);
+        } else {
+            Toast.makeText(getApplicationContext(),"Ocurrio un error al obtener sensor acelerometro",Toast.LENGTH_SHORT);
         }
 
         //Inicialización de objetos para speech de datos de sensores obtenidos
@@ -130,6 +139,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                         //En este caso solicito datos sensores a la placa y reproduzco audio con los datos
                         contentTxtDatosSensores = "Light: 54612 lx\nTemperature: 24.70 °C\nAbsolute Pressure: 1017.34 mb\nRelative Pressure: 1242.51 mb\nHumidity: 51.70 %\n";
                         speech.speak(contentTxtDatosSensores, TextToSpeech.QUEUE_FLUSH,null,"Datos Sensores");
+                    }
+                    break;
+                case Sensor.TYPE_ACCELEROMETER:
+                    if(Math.abs(evento.values[0]) > 30|| Math.abs(evento.values[1]) > 30 || Math.abs(evento.values[2]) > 30){
+                        //En este caso al detectar shake solicito datos sensores a la placa y los muestro en el textarea
+                        contentTxtDatosSensores = "Shake detectado";
+                        editTextDatosSensores.setText(contentTxtDatosSensores);
                     }
                     break;
                 default:
