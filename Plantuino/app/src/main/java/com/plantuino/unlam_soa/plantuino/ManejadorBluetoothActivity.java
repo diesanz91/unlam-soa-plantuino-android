@@ -25,7 +25,10 @@ public class ManejadorBluetoothActivity extends AppCompatActivity{
         super.onCreate(savedInstanceState);
         setContentView(R.layout.manejador_bluetooth_activity);
 
+        //Boton para desplegar lista de dispositivos vinculados
         btnDispositivosBluetooth = (Button)findViewById(R.id.btnDispositivosBluetooth);
+
+        //Lista para visualizar aquellos dispositivos vinculados
         listaDispositivosBluetooth=(ListView) findViewById(R.id.listViewDispositivos);
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 
@@ -61,6 +64,8 @@ public class ManejadorBluetoothActivity extends AppCompatActivity{
     private void listarDispositivosBluetooth(){
         //Verificamos si existe algun dispositivo sincronizado
         Set<BluetoothDevice> dispositivosBluetoothSincronizados = bluetoothAdapter.getBondedDevices();
+
+        //Creamos un array list que contendra todos aquellos dispositivos vinculados al nuestro
         ArrayList listaDispositivosBluetoothSincronizados = new ArrayList();
         if(dispositivosBluetoothSincronizados.size() > 0){
             for(BluetoothDevice dispositivo : dispositivosBluetoothSincronizados){
@@ -74,6 +79,7 @@ public class ManejadorBluetoothActivity extends AppCompatActivity{
         //Armo lista de dispositivos Bluetooth sincronizados
         final ArrayAdapter dispositivosBluetoothAdapter = new ArrayAdapter(this,android.R.layout.simple_list_item_1, listaDispositivosBluetoothSincronizados);
 
+        //Si no esta vacia la lista le agrego un adapter a cada dispositivo vinculado encontrado
         if (!dispositivosBluetoothSincronizados.isEmpty()){
             //listaDispositivosBluetooth = new ListView(getApplicationContext());
             listaDispositivosBluetooth.setAdapter(dispositivosBluetoothAdapter);
@@ -93,7 +99,7 @@ public class ManejadorBluetoothActivity extends AppCompatActivity{
             //Creamos un intent para iniciar la siguiente Activity
             Intent intent = new Intent(ManejadorBluetoothActivity.this, MainActivity.class);
 
-            //Cambiamos de Activity
+            //Cambiamos de Activity y la pasamos la direccion MAC del dispositivo elegido para intercambiar datos
             intent.putExtra(EXTRA_ADDRESS, direccion);
             startActivity(intent);
         }

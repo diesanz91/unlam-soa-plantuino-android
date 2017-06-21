@@ -1,12 +1,10 @@
 package com.plantuino.unlam_soa.plantuino;
 
-import android.app.ProgressDialog;
 import android.content.Intent;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.speech.tts.TextToSpeech;
 import android.support.annotation.RequiresApi;
@@ -19,11 +17,16 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.speech.RecognizerIntent;
 import android.content.ActivityNotFoundException;
-
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
 
 import android.bluetooth.*;
 
@@ -33,12 +36,24 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private String voz;
     private TextToSpeech speech;
     private String direccion = null;
-    private ProgressDialog progreso;
+
+    //Variables para comunicación Bluetooth
     private BluetoothAdapter bluetoothAdapter = null;
     private BluetoothSocket bluetoothSocket = null;
+    private static final UUID mUUID = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
     private boolean isBtConnected = false;
-    private static final UUID mUUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+    private ThreadConectar bluetoothConnection = null;
+    private ThreadConectado bluetoothConectado = null;
+    private boolean conexionExitosa = true;
+    private InputStream inputStream = null;
+    private OutputStream outputStream = null;
     private Button btnDesconectarBluetooth = null;
+    //Fin variables para comunicación Bluetooth
+
+    private Button btnSetearLimites = null;
+    private EditText editTextLimiteLuz = null;
+    private EditText editTextLimiteTemperatura = null;
+    private EditText editTextLimiteHumedad = null;
     private Button btnVentilacion = null;
     private String txtBtnVentilacion = null;
     private Button btnIluminacion = null;
@@ -68,10 +83,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             Toast.makeText(getApplicationContext(),"Ocurrio un error al obtener sensor de proximidad",Toast.LENGTH_SHORT);
         }
 
-        //Inicialización de objetos para sensor acelerometro
+        //Inicialización de objetos para sensor acelerómetro
         if (sensorManager != null){
             Sensor sensorAcelerometro = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-            //Registro listener al sensor acelerometro
+            //Registro listener al sensor acelerómetro
             sensorManager.registerListener(this,sensorAcelerometro,SensorManager.SENSOR_DELAY_NORMAL);
         } else {
             Toast.makeText(getApplicationContext(),"Ocurrio un error al obtener sensor acelerometro",Toast.LENGTH_SHORT);
@@ -87,12 +102,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
         });
 
-        Intent intent = getIntent();
-
-        //Obtengo direccion MAC del dispositivo Bluetooth seleccionado de la lista
-        direccion = intent.getStringExtra(ManejadorBluetoothActivity.EXTRA_ADDRESS);
-
         //Obtengo los diversos componentes de la vista
+        btnSetearLimites = (Button)findViewById(R.id.btnSetearLimites);
+        editTextLimiteLuz = (EditText)findViewById(R.id.editTextLimiteLuz);
+        editTextLimiteTemperatura = (EditText)findViewById(R.id.editTextLimiteTemperatura);
+        editTextLimiteHumedad = (EditText)findViewById(R.id.editTextLimiteHumedad);
         btnDesconectarBluetooth = (Button)findViewById(R.id.btnDesconectarBluetooth);
         btnVentilacion = (Button)findViewById(R.id.btnVentilacion);
         txtBtnVentilacion = (String)btnVentilacion.getText();
@@ -109,100 +123,162 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         btnLimpiarDatos = (Button)findViewById(R.id.btnLimpiarDatos);
 
         //Seteo listener a todos los botones
+        btnSetearLimites.setOnClickListener(botonesListener);
         btnVentilacion.setOnClickListener(botonesListener);
         btnIluminacion.setOnClickListener(botonesListener);
         btnHidratacion.setOnClickListener(botonesListener);
         btnObtenerDatos.setOnClickListener(botonesListener);
         btnMensajeVoz.setOnClickListener(botonesListener);
         btnLimpiarDatos.setOnClickListener(botonesListener);
+        btnDesconectarBluetooth.setOnClickListener(botonesListener);
 
-        //Ejecutamos conexion Bluetooth
-        //new conexionBluetooth().execute();
+        //Region bluetooth
+        Intent intent = getIntent();
+        //Obtengo direccion MAC del dispositivo bluetooth seleccionado de la lista
+        direccion = intent.getStringExtra(ManejadorBluetoothActivity.EXTRA_ADDRESS);
 
-    }
-
-    //Implemento métodos de la clase SensorEventListener
-    public void onAccuracyChanged(Sensor sensor, int precision) {}
-
-    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
-    public void onSensorChanged(SensorEvent evento){
-        //Cada sensor puede provocar que un thread principal pase por este bloque de codigo asi que sincronizamos el acceso
-        synchronized (this){
-            switch (evento.sensor.getType()){
-                case Sensor.TYPE_PROXIMITY:
-                    if(evento.values[0] != 0){
-                        contentTxtDatosSensores = "Detección proximidad";
-                        editTextDatosSensores.setText(contentTxtDatosSensores);
-                    } else{
-                        contentTxtDatosSensores = "Sin detección de proximidad";
-                        editTextDatosSensores.setText(contentTxtDatosSensores);
-                        //En este caso solicito datos sensores a la placa y reproduzco audio con los datos
-                        contentTxtDatosSensores = "Light: 54612 lx\nTemperature: 24.70 °C\nAbsolute Pressure: 1017.34 mb\nRelative Pressure: 1242.51 mb\nHumidity: 51.70 %\n";
-                        speech.speak(contentTxtDatosSensores, TextToSpeech.QUEUE_FLUSH,null,"Datos Sensores");
-                    }
-                    break;
-                case Sensor.TYPE_ACCELEROMETER:
-                    if(Math.abs(evento.values[0]) > 30|| Math.abs(evento.values[1]) > 30 || Math.abs(evento.values[2]) > 30){
-                        //En este caso al detectar shake solicito datos sensores a la placa y los muestro en el textarea
-                        contentTxtDatosSensores = "Shake detectado";
-                        editTextDatosSensores.setText(contentTxtDatosSensores);
-                    }
-                    break;
-                default:
-                    break;
+        if(bluetoothSocket == null || !isBtConnected){
+            bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+            //Realizamos conexion con el dispositivo y verificamos si esta disponible, debemos realizarla en otro thread para no bloquear el UIThread (thread principal)
+            BluetoothDevice dispositivo = bluetoothAdapter.getRemoteDevice(direccion);
+            if(dispositivo != null){
+                bluetoothConnection = new ThreadConectar(dispositivo);
+                //Una vez instanciada la conexion bluetooth en otro thread diferente al principal, ejecuto su funcionalidad
+                bluetoothConnection.start();
             }
         }
+
     }
 
-    private class conexionBluetooth extends AsyncTask<Void, Void, Void>{
+    //Clase para iniciar la conexion bluetooth con la placa
+    private class ThreadConectar extends Thread {
 
-        private boolean conexionExitosa = true;
+        //Atributos clase ThreadConectar
+        private BluetoothSocket mmSocket = null;
+        private BluetoothDevice mmDevice = null;
+        private UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
 
-        protected void onPreExecute(){
-            progreso = ProgressDialog.show(MainActivity.this,"Conectando...", "Espere por favor!");
-        }
+        //Constructor clase ThreadConectar
+        public ThreadConectar(BluetoothDevice device){
 
-        protected Void doInBackground(Void... dispositivos){
+            mmDevice = device;
+            //Variable temporal tipo socket para setear el valor obtenido desde createRfcommSocketToServiceRecord
+            BluetoothSocket tmpSocket = null;
             try{
-                if(bluetoothSocket == null || !isBtConnected){
-                    bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-                    //Realizamos conexion con el dispositivo y verificamos si esta disponible
-                    BluetoothDevice dispositivo = bluetoothAdapter.getRemoteDevice(direccion);
-                    bluetoothSocket = dispositivo.createInsecureRfcommSocketToServiceRecord(mUUID);
-                    BluetoothAdapter.getDefaultAdapter().cancelDiscovery();
-                    bluetoothSocket.connect();
-                }
-
-            }catch (IOException ioExc){
+                tmpSocket = device.createRfcommSocketToServiceRecord(mUUID);
+            } catch (IOException ioExc){
                 conexionExitosa = false;
             }
-            return null;
+            mmSocket = tmpSocket;
         }
 
-        protected void onPostExecute(Void result){
-            super.onPostExecute(result);
+        //Métodos clase ThreadConectar
+        public void run(){
 
-            if(!conexionExitosa){
-                Toast.makeText(getApplicationContext(),"Falló la conexión",Toast.LENGTH_SHORT).show();
-                finish();
-            } else {
-               Toast.makeText(getApplicationContext(),"Conexión exitosa",Toast.LENGTH_SHORT).show();
-                isBtConnected = true;
+            bluetoothAdapter.cancelDiscovery();
+            try{
+                mmSocket.connect();
+            }catch (IOException ioExc){
+                try{
+                    mmSocket.close();
+                } catch(IOException ioException){
+                    return;
+                }
             }
-            progreso.dismiss();
+            bluetoothConectado = new ThreadConectado(mmSocket);
+            bluetoothConectado.start();
         }
+
+        public void cancel(){
+
+            try{
+                bluetoothSocket.close();
+            }catch(IOException ioException){
+
+            }
+
+        }
+        //Fin métodos clase ThreadConectar
 
     }
 
-    private void desconexionBluetooth(){
-        if(bluetoothSocket != null){
+    //Clase para manejar la conexion bluetooth con la placa
+    private class ThreadConectado extends Thread{
+
+        //Atributos privados de la clase ThreadConectado
+        private BluetoothSocket mmSocket = null;
+        private InputStream mmInputStream = new InputStream() {
+            @Override
+            public int read() throws IOException {
+                return 0;
+            }
+        };
+        private OutputStream mmOutputStream = new OutputStream() {
+            @Override
+            public void write(int b) throws IOException {
+
+            }
+        };
+
+        //Constructor clase ThreadConectado
+        public ThreadConectado(BluetoothSocket socket){
+
+            mmSocket = socket;
+            //Creo un input y output steam temporales para manejar flujos de entrada y salida bluetooth y luego setear lo obtenido en los atributos mmInputStream y mmOutputStream de la clase ThreadConctado
+            InputStream tmpIn = null;
+            OutputStream tmpOut = null;
             try{
-                bluetoothSocket.close();
-            }catch (IOException ioExc){
-                Toast.makeText(getApplicationContext(),"Ocurrió un error al desconectar",Toast.LENGTH_SHORT).show();
+                if(socket != null){
+                    tmpIn = socket.getInputStream();
+                    tmpOut = socket.getOutputStream();
+                }
+            } catch (IOException ioException){}
+
+            mmInputStream = tmpIn;
+            mmOutputStream = tmpOut;
+
+        }
+
+        //Métodos clase ThreadConectado
+        public void run(){
+            //Debemos aplicar la funcionalidad correspondiente para que cuando se reciba informacion (datos sensores) desde la placa la escriba en los componentes correspondientes
+            while(true){
+                try{
+
+                    BufferedReader buffReader = new BufferedReader(new InputStreamReader(mmInputStream));
+                    StringBuilder datosSensores = new StringBuilder();
+                    String linea;
+
+                    while((linea = buffReader.readLine()) != null){
+                        datosSensores.append(linea).append('\n');
+                    }
+                    contentTxtDatosSensores = datosSensores.toString();
+                    editTextDatosSensores.setText(contentTxtDatosSensores);
+
+                }catch(IOException ioException){
+                    //Error al leer datos enviados por la placa
+                    contentTxtDatosSensores = "Error al leer datos enviados por la placa\n";
+                    editTextDatosSensores.setText(contentTxtDatosSensores);
+                }
             }
         }
-        finish();
+
+        //Método para escribir en flujo de salida (hacia la placa)
+        public void write(byte[] bytes){
+            try{
+                mmOutputStream.write(bytes);
+            }catch(IOException ioException){
+
+            }
+        }
+
+        public void cancel(){
+            try{
+                mmSocket.close();
+            }catch (IOException ioException){}
+        }
+        //Fin métodos clase ThreadConectado
+
     }
 
     protected void onActivityResult(int requestCode, int resultCode, Intent data){
@@ -217,9 +293,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     voz = strSpeechText;
 
                     if(voz.compareToIgnoreCase("sensor") == 0){
-                        contentTxtDatosSensores = "Luz: 54612 lx\nTemperatura: 24.70 °C\nPresión Absoluta: 1017.34 mb (milibares)\nPresión Relativa: 1242.51 mb (milibares)\nHumedad: 51.70 %\n";
-                        editTextDatosSensores.setText(contentTxtDatosSensores);
-                        Toast.makeText(getApplicationContext(), "Datos Sensados Recibidos", Toast.LENGTH_SHORT).show();
+                        if(bluetoothConectado != null){
+                            contentTxtDatosSensores = "";
+                            //bluetoothSocket.getOutputStream().write("A".toString().getBytes());s
+                            //contentTxtDatosSensores = "Luz: 54612 lx\nTemperatura: 24.70 °C\nPresión Absoluta: 1017.34 mb (milibares)\nPresión Relativa: 1242.51 mb (milibares)\nHumedad: 51.70 %\n";
+                            bluetoothConectado.write("A".toString().getBytes());
+                            //editTextDatosSensores.setText(contentTxtDatosSensores);
+                            Toast.makeText(getApplicationContext(), "Datos sensados recibidos", Toast.LENGTH_SHORT).show();
+                        }
                     }else{
                         Toast.makeText(getApplicationContext(), "Comando de voz inválido", Toast.LENGTH_SHORT).show();
                     }
@@ -230,100 +311,109 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
     }
 
-    private void onClickImgBtnHablar(){
-        Intent intentActionRecognizeSpeech = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        //Configuramos el lenguaje
-        intentActionRecognizeSpeech.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        try{
-            startActivityForResult(intentActionRecognizeSpeech,RECOGNIZE_SPEECH_ACTIVITY);
-        }catch(ActivityNotFoundException ae){
-            Toast.makeText(getApplicationContext(),"Este dispositivo no soporta reconocimiento de voz",Toast.LENGTH_LONG).show();
-        }
-    }
-
     private View.OnClickListener botonesListener= new View.OnClickListener(){
 
         public void onClick(View v){
 
             switch (v.getId()){
+                case R.id.btnSetearLimites:
+
+                    String limiteLuz = editTextLimiteLuz.getText().toString();
+                    String limiteTemperatura = editTextLimiteTemperatura.getText().toString();
+                    String limiteHumedad = editTextLimiteHumedad.getText().toString();
+                    StringBuilder parametros = new StringBuilder();
+                    parametros.append('P').append('-');
+
+                    if(limiteLuz != null && limiteLuz.length() != 0)
+                        parametros.append(limiteLuz).append('-');
+                    else
+                        parametros.append(0).append('-');
+
+                    if(limiteTemperatura != null && limiteTemperatura.length() != 0)
+                        parametros.append(limiteTemperatura).append('-');
+                    else
+                        parametros.append(0).append('-');
+
+                    if(limiteHumedad != null && limiteHumedad.length() != 0)
+                        parametros.append(limiteHumedad).append('\n');
+                    else
+                        parametros.append(0).append('\n');
+
+                    if(bluetoothConectado != null)
+                        bluetoothConectado.write(parametros.toString().getBytes());
+
+                    break;
                 case  R.id.btnDesconectarBluetooth:
-                    desconexionBluetooth();
+                    bluetoothConectado.cancel();
+                    bluetoothConnection.cancel();
+                    Toast.makeText(getApplicationContext(),"Conexión Bluetooth cerrada",Toast.LENGTH_LONG).show();
                     break;
                 case R.id.btnVentilacion:
                     if(txtBtnVentilacion.compareToIgnoreCase("ENCENDER") == 0){
-                        if(bluetoothSocket != null){
-                            try{
-                                bluetoothSocket.getOutputStream().write("V".toString().getBytes());
-                                txtBtnVentilacion = "APAGAR";
-                                btnVentilacion.setText(txtBtnVentilacion);
-                                Toast.makeText(getApplicationContext(),"Ventilación Encendida",Toast.LENGTH_LONG).show();
-                            } catch (IOException ioExc){
-                                Toast.makeText(getApplicationContext(),"Error al encender ventilación",Toast.LENGTH_LONG).show();
-                            }
+                        if(bluetoothConectado != null){
+                            //Envio indicacion a placa para operar con actuador
+                            bluetoothConectado.write("V".toString().getBytes());
+                            txtBtnVentilacion = "APAGAR";
+                            btnVentilacion.setText(txtBtnVentilacion);
+                            Toast.makeText(getApplicationContext(),"Ventilación Encendida",Toast.LENGTH_LONG).show();
                         }
                     } else {
-                        if(bluetoothSocket != null){
-                            try{
-                                bluetoothSocket.getOutputStream().write("v".toString().getBytes());
-                                txtBtnVentilacion = "ENCENDER";
-                                btnVentilacion.setText(txtBtnVentilacion);
-                                Toast.makeText(getApplicationContext(),"Ventilación Apagada",Toast.LENGTH_SHORT).show();
-                            } catch(IOException ioExc){
-                                Toast.makeText(getApplicationContext(),"Error al apagar ventilación",Toast.LENGTH_SHORT).show();
-                            }
+                        if(bluetoothConectado != null){
+                            //Envio indicacion a placa para operar con actuador
+                            bluetoothConectado.write("v".toString().getBytes());
+                            txtBtnVentilacion = "ENCENDER";
+                            btnVentilacion.setText(txtBtnVentilacion);
+                            Toast.makeText(getApplicationContext(),"Ventilación Apagada",Toast.LENGTH_SHORT).show();
                         }
                     }
                     break;
                 case R.id.btnIluminacion:
                     if(txtBtnIluminacion.compareToIgnoreCase("ENCENDER") == 0){
-                        if(bluetoothSocket != null){
-                            try{
-                                bluetoothSocket.getOutputStream().write("I".toString().getBytes());
-                                txtBtnIluminacion = "APAGAR";
-                                btnIluminacion.setText(txtBtnIluminacion);
-                                Toast.makeText(getApplicationContext(),"Iluminación Encendida",Toast.LENGTH_SHORT).show();
-                            } catch(IOException ioExc){
-                                Toast.makeText(getApplicationContext(),"Error al encender iluminación",Toast.LENGTH_SHORT).show();
-                            }
+                        if(bluetoothConectado != null){
+                            //Envio indicacion a placa para operar con actuador
+                            bluetoothConectado.write("I".toString().getBytes());
+                            txtBtnIluminacion = "APAGAR";
+                            btnIluminacion.setText(txtBtnIluminacion);
+                            Toast.makeText(getApplicationContext(),"Iluminación Encendida",Toast.LENGTH_SHORT).show();
                         }
                     } else {
-                        if(bluetoothSocket != null){
-                            try{
-                                bluetoothSocket.getOutputStream().write("i".toString().getBytes());
-                                txtBtnIluminacion = "ENCENDER";
-                                btnIluminacion.setText(txtBtnIluminacion);
-                                Toast.makeText(getApplicationContext(), "Iluminación Apagada", Toast.LENGTH_SHORT).show();
-                            } catch (IOException ioExc){
-                                Toast.makeText(getApplicationContext(),"Error al encender iluminación",Toast.LENGTH_SHORT).show();
-                            }
+                        if(bluetoothConectado != null){
+                            //Envio indicacion a placa para operar con actuador
+                            bluetoothConectado.write("i".toString().getBytes());
+                            txtBtnIluminacion = "ENCENDER";
+                            btnIluminacion.setText(txtBtnIluminacion);
+                            Toast.makeText(getApplicationContext(), "Iluminación Apagada", Toast.LENGTH_SHORT).show();
                         }
                     }
                     break;
                 case R.id.btnHidratacion:
                     if(txtBtnHidratacion.compareToIgnoreCase("ENCENDER") == 0){
-                        try{
-                            bluetoothSocket.getOutputStream().write("H".toString().getBytes());
+                        if(bluetoothConectado != null){
+                            //Envio indicacion a placa para operar con actuador
+                            bluetoothConectado.write("B".toString().getBytes());
                             txtBtnHidratacion = "APAGAR";
                             btnHidratacion.setText(txtBtnHidratacion);
                             Toast.makeText(getApplicationContext(),"Hidratación Encendida",Toast.LENGTH_SHORT).show();
-                        } catch (IOException ioExc){
-                            Toast.makeText(getApplicationContext(),"Error al encender hidratación",Toast.LENGTH_SHORT).show();
                         }
                     } else {
-                        try{
-                            bluetoothSocket.getOutputStream().write("h".toString().getBytes());
+                        if(bluetoothConectado != null){
+                            //Envio indicacion a placa para operar con actuador
+                            bluetoothConectado.write("b".toString().getBytes());
                             txtBtnHidratacion = "ENCENDER";
                             btnHidratacion.setText(txtBtnHidratacion);
                             Toast.makeText(getApplicationContext(),"Hidratación Apagada",Toast.LENGTH_SHORT).show();
-                        } catch (IOException ioExc){
-                            Toast.makeText(getApplicationContext(),"Error al apagar hidratación",Toast.LENGTH_SHORT).show();
                         }
                     }
                     break;
                 case R.id.btnObtenerDatos:
-                    contentTxtDatosSensores = "Luz: 54612 lx\nTemperatura: 24.70 °C\nPresión Absoluta: 1017.34 mb (milibares)\nPresión Relativa: 1242.51 mb (milibares)\nHumedad: 51.70 %\n";
-                    editTextDatosSensores.setText(contentTxtDatosSensores);
-                    Toast.makeText(getApplicationContext(), "Datos Sensados Recibidos", Toast.LENGTH_SHORT).show();
+                    if(bluetoothConectado != null){
+                        contentTxtDatosSensores = "";
+                        //Envio indicacion a placa para operar con actuador
+                        bluetoothConectado.write("A".toString().getBytes());
+                        //contentTxtDatosSensores = "Luz: 54612 lx\nTemperatura: 24.70 °C\nPresión Absoluta: 1017.34 mb (milibares)\nPresión Relativa: 1242.51 mb (milibares)\nHumedad: 51.70 %\n";
+                        //editTextDatosSensores.setText(contentTxtDatosSensores);
+                        Toast.makeText(getApplicationContext(), "Datos Sensados Recibidos", Toast.LENGTH_SHORT).show();
+                    }
                     break;
                 case R.id.btnMensajeVoz:
                     onClickImgBtnHablar();
@@ -339,5 +429,55 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
 
     };
+
+    //Creo intent para ingresar comando de voz
+    private void onClickImgBtnHablar(){
+        Intent intentActionRecognizeSpeech = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        //Configuramos el lenguaje
+        intentActionRecognizeSpeech.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        try{
+            startActivityForResult(intentActionRecognizeSpeech,RECOGNIZE_SPEECH_ACTIVITY);
+        }catch(ActivityNotFoundException ae){
+            Toast.makeText(getApplicationContext(),"Este dispositivo no soporta reconocimiento de voz",Toast.LENGTH_LONG).show();
+        }
+    }
+
+    //Métodos encargados de manejar los sensores
+    //Implemento métodos de la clase SensorEventListener
+    public void onAccuracyChanged(Sensor sensor, int precision) {}
+
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    public void onSensorChanged(SensorEvent evento){
+        //Cada sensor puede provocar que un thread principal pase por este bloque de codigo asi que sincronizamos el acceso
+        synchronized (this){
+            switch (evento.sensor.getType()){
+                case Sensor.TYPE_PROXIMITY:
+                    if(evento.values[0] != 0){
+                        //contentTxtDatosSensores = "Sin deteccion de proximidad";
+                    } else{
+                        contentTxtDatosSensores = "";
+                        //Se detecto objeto
+                        //contentTxtDatosSensores = "Detección proximidad";
+                        //Solicito datos de sensores a la placa y reproduzco audio con los datos
+                        //contentTxtDatosSensores = "Light: 54612 lx\nTemperature: 24.70 °C\nAbsolute Pressure: 1017.34 mb\nRelative Pressure: 1242.51 mb\nHumidity: 51.70 %\n";
+                        bluetoothConectado.write("A".toString().getBytes());
+                        //editTextDatosSensores.setText(contentTxtDatosSensores);
+                        speech.speak(contentTxtDatosSensores, TextToSpeech.QUEUE_FLUSH,null,"");
+                    }
+                    break;
+                case Sensor.TYPE_ACCELEROMETER:
+                    if(Math.abs(evento.values[0]) > 30|| Math.abs(evento.values[1]) > 30 || Math.abs(evento.values[2]) > 30){
+                        //En este caso al detectar shake solicito datos sensores a la placa y los muestro en el textarea
+                        //contentTxtDatosSensores = "Shake detectado";
+                        contentTxtDatosSensores = "";
+                        bluetoothConectado.write("A".toString().getBytes());
+                        //editTextDatosSensores.setText(contentTxtDatosSensores);
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
 
 }
