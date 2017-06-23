@@ -25,8 +25,6 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Locale;
 import java.util.UUID;
-import java.util.logging.Handler;
-import java.util.logging.LogRecord;
 
 import android.bluetooth.*;
 
@@ -219,6 +217,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
             }
         };
+        public String contenido = "";
 
         //Constructor clase ThreadConectado
         public ThreadConectado(BluetoothSocket socket){
@@ -250,10 +249,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     String linea;
 
                     while((linea = buffReader.readLine()) != null){
-                        datosSensores.append(linea).append('\n');
+                        //datosSensores.append(linea).append('\n');
+                        //this.contenido = datosSensores.toString();
+                        this.contenido += linea + '\n';
                     }
-                    contentTxtDatosSensores = datosSensores.toString();
-                    editTextDatosSensores.setText(contentTxtDatosSensores);
+                    //contentTxtDatosSensores = datosSensores.toString();
+                    //editTextDatosSensores.setText(contentTxtDatosSensores);
 
                 }catch(IOException ioException){
                     //Error al leer datos enviados por la placa
@@ -299,6 +300,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                             //contentTxtDatosSensores = "Luz: 54612 lx\nTemperatura: 24.70 °C\nPresión Absoluta: 1017.34 mb (milibares)\nPresión Relativa: 1242.51 mb (milibares)\nHumedad: 51.70 %\n";
                             bluetoothConectado.write("A".toString().getBytes());
                             //editTextDatosSensores.setText(contentTxtDatosSensores);
+                            editTextDatosSensores.setText(bluetoothConectado.contenido);
                             Toast.makeText(getApplicationContext(), "Datos sensados recibidos", Toast.LENGTH_SHORT).show();
                         }
                     }else{
@@ -352,7 +354,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     if(txtBtnVentilacion.compareToIgnoreCase("ENCENDER") == 0){
                         if(bluetoothConectado != null){
                             //Envio indicacion a placa para operar con actuador
-                            bluetoothConectado.write("V".toString().getBytes());
+                            bluetoothConectado.write("V\n".toString().getBytes());
                             txtBtnVentilacion = "APAGAR";
                             btnVentilacion.setText(txtBtnVentilacion);
                             Toast.makeText(getApplicationContext(),"Ventilación Encendida",Toast.LENGTH_LONG).show();
@@ -360,7 +362,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     } else {
                         if(bluetoothConectado != null){
                             //Envio indicacion a placa para operar con actuador
-                            bluetoothConectado.write("v".toString().getBytes());
+                            bluetoothConectado.write("v\n".toString().getBytes());
                             txtBtnVentilacion = "ENCENDER";
                             btnVentilacion.setText(txtBtnVentilacion);
                             Toast.makeText(getApplicationContext(),"Ventilación Apagada",Toast.LENGTH_SHORT).show();
@@ -371,7 +373,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     if(txtBtnIluminacion.compareToIgnoreCase("ENCENDER") == 0){
                         if(bluetoothConectado != null){
                             //Envio indicacion a placa para operar con actuador
-                            bluetoothConectado.write("I".toString().getBytes());
+                            bluetoothConectado.write("I\n".toString().getBytes());
                             txtBtnIluminacion = "APAGAR";
                             btnIluminacion.setText(txtBtnIluminacion);
                             Toast.makeText(getApplicationContext(),"Iluminación Encendida",Toast.LENGTH_SHORT).show();
@@ -379,7 +381,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     } else {
                         if(bluetoothConectado != null){
                             //Envio indicacion a placa para operar con actuador
-                            bluetoothConectado.write("i".toString().getBytes());
+                            bluetoothConectado.write("i\n".toString().getBytes());
                             txtBtnIluminacion = "ENCENDER";
                             btnIluminacion.setText(txtBtnIluminacion);
                             Toast.makeText(getApplicationContext(), "Iluminación Apagada", Toast.LENGTH_SHORT).show();
@@ -390,7 +392,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     if(txtBtnHidratacion.compareToIgnoreCase("ENCENDER") == 0){
                         if(bluetoothConectado != null){
                             //Envio indicacion a placa para operar con actuador
-                            bluetoothConectado.write("B".toString().getBytes());
+                            bluetoothConectado.write("B\n".toString().getBytes());
                             txtBtnHidratacion = "APAGAR";
                             btnHidratacion.setText(txtBtnHidratacion);
                             Toast.makeText(getApplicationContext(),"Hidratación Encendida",Toast.LENGTH_SHORT).show();
@@ -398,7 +400,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     } else {
                         if(bluetoothConectado != null){
                             //Envio indicacion a placa para operar con actuador
-                            bluetoothConectado.write("b".toString().getBytes());
+                            bluetoothConectado.write("b\n".toString().getBytes());
                             txtBtnHidratacion = "ENCENDER";
                             btnHidratacion.setText(txtBtnHidratacion);
                             Toast.makeText(getApplicationContext(),"Hidratación Apagada",Toast.LENGTH_SHORT).show();
@@ -409,9 +411,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     if(bluetoothConectado != null){
                         contentTxtDatosSensores = "";
                         //Envio indicacion a placa para operar con actuador
-                        bluetoothConectado.write("A".toString().getBytes());
+                        bluetoothConectado.write("A\n".toString().getBytes());
                         //contentTxtDatosSensores = "Luz: 54612 lx\nTemperatura: 24.70 °C\nPresión Absoluta: 1017.34 mb (milibares)\nPresión Relativa: 1242.51 mb (milibares)\nHumedad: 51.70 %\n";
                         //editTextDatosSensores.setText(contentTxtDatosSensores);
+                        editTextDatosSensores.setText(bluetoothConectado.contenido);
                         Toast.makeText(getApplicationContext(), "Datos Sensados Recibidos", Toast.LENGTH_SHORT).show();
                     }
                     break;
@@ -460,8 +463,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                         //contentTxtDatosSensores = "Detección proximidad";
                         //Solicito datos de sensores a la placa y reproduzco audio con los datos
                         //contentTxtDatosSensores = "Light: 54612 lx\nTemperature: 24.70 °C\nAbsolute Pressure: 1017.34 mb\nRelative Pressure: 1242.51 mb\nHumidity: 51.70 %\n";
-                        bluetoothConectado.write("A".toString().getBytes());
+                        bluetoothConectado.write("A\n".toString().getBytes());
                         //editTextDatosSensores.setText(contentTxtDatosSensores);
+                        editTextDatosSensores.setText(bluetoothConectado.contenido);
                         speech.speak(contentTxtDatosSensores, TextToSpeech.QUEUE_FLUSH,null,"");
                     }
                     break;
@@ -470,7 +474,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                         //En este caso al detectar shake solicito datos sensores a la placa y los muestro en el textarea
                         //contentTxtDatosSensores = "Shake detectado";
                         contentTxtDatosSensores = "";
-                        bluetoothConectado.write("A".toString().getBytes());
+                        bluetoothConectado.write("A\n".toString().getBytes());
                         //editTextDatosSensores.setText(contentTxtDatosSensores);
                     }
                     break;
