@@ -346,7 +346,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
                     if(bluetoothConectado != null)
                         bluetoothConectado.write(parametros.toString().getBytes());
-
+                    Toast.makeText(getApplicationContext(), "Límites Parámetros Enviados", Toast.LENGTH_SHORT).show();
                     break;
                 case  R.id.btnDesconectarBluetooth:
                     bluetoothConectado.cancel();
