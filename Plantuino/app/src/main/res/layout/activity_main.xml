@@ -79,6 +79,8 @@
                     android:layout_weight="1"
                     android:ems="10"
                     android:inputType="numberDecimal"
+                    android:text="300.0"
+                    android:textAlignment="textEnd"
                     android:textSize="12sp" />
             </LinearLayout>
 
@@ -104,6 +106,8 @@
                     android:layout_weight="1"
                     android:ems="10"
                     android:inputType="numberDecimal"
+                    android:text="25.0"
+                    android:textAlignment="textEnd"
                     android:textSize="12sp" />
             </LinearLayout>
 
@@ -129,6 +133,8 @@
                     android:layout_weight="1"
                     android:ems="10"
                     android:inputType="numberDecimal"
+                    android:text="65.0"
+                    android:textAlignment="textEnd"
                     android:textSize="12sp" />
             </LinearLayout>
 
@@ -426,9 +432,8 @@
 
                 <Button
                     android:id="@+id/btnLimpiarDatos"
-                    android:layout_width="match_parent"
+                    android:layout_width="146dp"
                     android:layout_height="30dp"
-                    android:layout_weight="1"
                     android:background="@color/colorPrimaryDark"
                     android:text="Limpiar Datos"
                     android:textColor="@android:color/background_light"
@@ -436,11 +441,27 @@
 
                 <Button
                     android:id="@+id/btnDesconectarBluetooth"
-                    android:layout_width="match_parent"
+                    android:layout_width="146dp"
                     android:layout_height="30dp"
-                    android:layout_weight="1"
                     android:background="@color/colorAccent"
                     android:text="Desconectar"
+                    android:textColor="@android:color/background_light"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btnLuzMobile"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_margin="0dp"
+                    android:background="@mipmap/luz"
+                    android:visibility="visible" />
+
+                <Button
+                    android:id="@+id/btnConfig"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_margin="0dp"
+                    android:background="@mipmap/settings"
                     android:textColor="@android:color/background_light"
                     android:textStyle="bold" />
 

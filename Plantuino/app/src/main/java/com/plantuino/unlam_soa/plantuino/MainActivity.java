@@ -5,7 +5,10 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.media.AudioAttributes;
 import android.os.Build;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.speech.tts.TextToSpeech;
 import android.support.annotation.RequiresApi;
 import android.support.v7.app.AppCompatActivity;
@@ -25,15 +28,20 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Locale;
 import java.util.UUID;
+import android.media.AudioManager;
 
 import android.bluetooth.*;
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
 
     private static final int RECOGNIZE_SPEECH_ACTIVITY = 1;
+    private static final int LIGHT_SENSOR_ACTIVITY = 2;
     private String voz;
     private TextToSpeech speech;
     private String direccion = null;
+    private boolean sensorMovil;
+    private boolean ledApagado = true;
+    private float luz;
 
     //Variables para comunicación Bluetooth
     private BluetoothAdapter bluetoothAdapter = null;
@@ -65,11 +73,23 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private EditText editTextDatosSensores = null;
     private String contentTxtDatosSensores = null;
     private Button btnLimpiarDatos = null;
+    //Boton Configuracion
+    private Button btnConfig = null;
+    private Button btnLuzMobile = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        AudioManager audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+        /*
+        audioManager.setMode(AudioManager.MODE_IN_CALL);
+        audioManager.setSpeakerphoneOn(true);
+*/
+        audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+        audioManager.setSpeakerphoneOn(false);
+
 
         //Inicialización de objetos para sensor de proximidad
         SensorManager sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
@@ -88,6 +108,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             sensorManager.registerListener(this,sensorAcelerometro,SensorManager.SENSOR_DELAY_NORMAL);
         } else {
             Toast.makeText(getApplicationContext(),"Ocurrio un error al obtener sensor acelerometro",Toast.LENGTH_SHORT);
+        }
+
+        if(sensorManager != null){
+            Sensor sensorLuz = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
+            //Registro listener al sensor de luz
+            sensorManager.registerListener(this,sensorLuz,SensorManager.SENSOR_DELAY_NORMAL);
+        } else {
+            Toast.makeText(getApplicationContext(),"Ocurrio un error al obtener sensor de luz",Toast.LENGTH_SHORT);
         }
 
         //Inicialización de objetos para speech de datos de sensores obtenidos
@@ -119,6 +147,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         editTextDatosSensores = (EditText) findViewById(R.id.editTextDatosSensores);
         contentTxtDatosSensores = editTextDatosSensores.getEditableText().toString();
         btnLimpiarDatos = (Button)findViewById(R.id.btnLimpiarDatos);
+        //Boton Configuracion
+        btnConfig = (Button)findViewById(R.id.btnConfig);
+        btnLuzMobile = (Button)findViewById(R.id.btnLuzMobile);
+        btnLuzMobile.setVisibility(View.INVISIBLE);
 
         //Seteo listener a todos los botones
         btnSetearLimites.setOnClickListener(botonesListener);
@@ -129,6 +161,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         btnMensajeVoz.setOnClickListener(botonesListener);
         btnLimpiarDatos.setOnClickListener(botonesListener);
         btnDesconectarBluetooth.setOnClickListener(botonesListener);
+        //Boton Configuracion
+        btnConfig.setOnClickListener(botonesListener);
 
         //Region bluetooth
         Intent intent = getIntent();
@@ -149,94 +183,96 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     //Clase para iniciar la conexion bluetooth con la placa
-    private class ThreadConectar extends Thread {
+        private class ThreadConectar extends Thread {
 
-        //Atributos clase ThreadConectar
-        private BluetoothSocket mmSocket = null;
-        private BluetoothDevice mmDevice = null;
-        private UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
+            //Atributos clase ThreadConectar
+            private BluetoothSocket mmSocket = null;
+            private BluetoothDevice mmDevice = null;
+            private UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
 
-        //Constructor clase ThreadConectar
-        public ThreadConectar(BluetoothDevice device){
+            //Constructor clase ThreadConectar
+            public ThreadConectar(BluetoothDevice device){
 
-            mmDevice = device;
-            //Variable temporal tipo socket para setear el valor obtenido desde createRfcommSocketToServiceRecord
-            BluetoothSocket tmpSocket = null;
-            try{
-                tmpSocket = device.createRfcommSocketToServiceRecord(mUUID);
-            } catch (IOException ioExc){
-                conexionExitosa = false;
-            }
-            mmSocket = tmpSocket;
-        }
-
-        //Métodos clase ThreadConectar
-        public void run(){
-
-            bluetoothAdapter.cancelDiscovery();
-            try{
-                mmSocket.connect();
-            }catch (IOException ioExc){
+                mmDevice = device;
+                //Variable temporal tipo socket para setear el valor obtenido desde createRfcommSocketToServiceRecord
+                BluetoothSocket tmpSocket = null;
                 try{
-                    mmSocket.close();
-                } catch(IOException ioException){
-                    return;
+                    tmpSocket = device.createRfcommSocketToServiceRecord(mUUID);
+                } catch (IOException ioExc){
+                    conexionExitosa = false;
                 }
-            }
-            bluetoothConectado = new ThreadConectado(mmSocket);
-            bluetoothConectado.start();
-        }
-
-        public void cancel(){
-
-            try{
-                bluetoothSocket.close();
-            }catch(IOException ioException){
-
+                mmSocket = tmpSocket;
             }
 
-        }
-        //Fin métodos clase ThreadConectar
+            //Métodos clase ThreadConectar
+            public void run(){
 
-    }
-
-    //Clase para manejar la conexion bluetooth con la placa
-    private class ThreadConectado extends Thread{
-
-        //Atributos privados de la clase ThreadConectado
-        private BluetoothSocket mmSocket = null;
-        private InputStream mmInputStream = new InputStream() {
-            @Override
-            public int read() throws IOException {
-                return 0;
-            }
-        };
-        private OutputStream mmOutputStream = new OutputStream() {
-            @Override
-            public void write(int b) throws IOException {
-
-            }
-        };
-        public String contenido = "";
-
-        //Constructor clase ThreadConectado
-        public ThreadConectado(BluetoothSocket socket){
-
-            mmSocket = socket;
-            //Creo un input y output steam temporales para manejar flujos de entrada y salida bluetooth y luego setear lo obtenido en los atributos mmInputStream y mmOutputStream de la clase ThreadConctado
-            InputStream tmpIn = null;
-            OutputStream tmpOut = null;
-            try{
-                if(socket != null){
-                    tmpIn = socket.getInputStream();
-                    tmpOut = socket.getOutputStream();
+                bluetoothAdapter.cancelDiscovery();
+                try{
+                    mmSocket.connect();
+                }catch (IOException ioExc){
+                    try{
+                        mmSocket.close();
+                    } catch(IOException ioException){
+                        return;
+                    }
                 }
-            } catch (IOException ioException){}
+                bluetoothConectado = new ThreadConectado(mmSocket);
+                bluetoothConectado.start();
+                //Solicito datos de los limites a la placa
+                bluetoothConectado.write("S\n".toString().getBytes());
+            }
 
-            mmInputStream = tmpIn;
-            mmOutputStream = tmpOut;
+            public void cancel(){
+
+                try{
+                    bluetoothSocket.close();
+                }catch(IOException ioException){
+
+                }
+
+            }
+            //Fin métodos clase ThreadConectar
 
         }
+
+        //Clase para manejar la conexion bluetooth con la placa
+        private class ThreadConectado extends Thread{
+
+            //Atributos privados de la clase ThreadConectado
+            private BluetoothSocket mmSocket = null;
+            private InputStream mmInputStream = new InputStream() {
+                @Override
+                public int read() throws IOException {
+                    return 0;
+                }
+            };
+            private OutputStream mmOutputStream = new OutputStream() {
+                @Override
+                public void write(int b) throws IOException {
+
+                }
+            };
+            public String contenido = "";
+
+            //Constructor clase ThreadConectado
+            public ThreadConectado(BluetoothSocket socket){
+
+                mmSocket = socket;
+                //Creo un input y output steam temporales para manejar flujos de entrada y salida bluetooth y luego setear lo obtenido en los atributos mmInputStream y mmOutputStream de la clase ThreadConctado
+                InputStream tmpIn = null;
+                OutputStream tmpOut = null;
+                try{
+                    if(socket != null){
+                        tmpIn = socket.getInputStream();
+                        tmpOut = socket.getOutputStream();
+                    }
+                } catch (IOException ioException){}
+
+                mmInputStream = tmpIn;
+                mmOutputStream = tmpOut;
+
+            }
 
         //Métodos clase ThreadConectado
         public void run(){
@@ -247,7 +283,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     String linea;
 
                     while((linea = buffReader.readLine()) != null){
-                        this.contenido += linea + '\n';
+                         this.contenido += linea.replace('|','\n');
                     }
 
                 }catch(IOException ioException){
@@ -281,6 +317,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         switch(requestCode){
             case RECOGNIZE_SPEECH_ACTIVITY:
                 if(resultCode == RESULT_OK && null != data){
+
                     ArrayList<String> speech = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
 
                     String strSpeechText = speech.get(0);
@@ -291,6 +328,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                         if(bluetoothConectado != null){
                             //contentTxtDatosSensores = "Luz: 54612 lx\nTemperatura: 24.70 °C\nPresión Absoluta: 1017.34 mb (milibares)\nPresión Relativa: 1242.51 mb (milibares)\nHumedad: 51.70 %\n";
                             bluetoothConectado.write("A".toString().getBytes());
+
                             editTextDatosSensores.setText(bluetoothConectado.contenido);
                             bluetoothConectado.contenido = "";
                             Toast.makeText(getApplicationContext(), "Datos sensados recibidos", Toast.LENGTH_SHORT).show();
@@ -298,8 +336,23 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     }else{
                         Toast.makeText(getApplicationContext(), "Comando de voz inválido", Toast.LENGTH_SHORT).show();
                     }
+
                 }
                 break;
+            case LIGHT_SENSOR_ACTIVITY:
+                if(resultCode == RESULT_OK && null != data) {
+                    sensorMovil = data.getBooleanExtra("SensorMovil",false);
+                   if (sensorMovil) {
+                        btnLuzMobile.setVisibility(View.VISIBLE);
+                        bluetoothConectado.write("M\n".toString().getBytes());
+                        Toast.makeText(getApplicationContext(), "Sensor de Luz del Movil Activado", Toast.LENGTH_SHORT).show();
+                    }
+                    else {
+                        btnLuzMobile.setVisibility(View.INVISIBLE);
+                        bluetoothConectado.write("m\n".toString().getBytes());
+                        Toast.makeText(getApplicationContext(), "Sensor de Luz del Movil Desactivado", Toast.LENGTH_SHORT).show();
+                    }
+                }
             default:
                 break;
         }
@@ -430,6 +483,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     editTextDatosSensores.setText("");
                     Toast.makeText(getApplicationContext(),"Se han limpiado los datos de sensores",Toast.LENGTH_SHORT).show();
                     break;
+                case R.id.btnConfig:
+                    Intent i = new Intent(MainActivity.this, CalibracionLuz.class);
+                    if(sensorMovil)
+                        i.putExtra("SensorMovil", "S");
+                    else
+                        i.putExtra("SensorMovil", "N");
+                    startActivityForResult(i,LIGHT_SENSOR_ACTIVITY);
+                    break;
                 default:
                     Toast.makeText(getApplicationContext(),"Error ocurrido en Listener de botones",Toast.LENGTH_LONG).show();
             }
@@ -461,25 +522,60 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 case Sensor.TYPE_PROXIMITY:
                     if(evento.values[0] != 0){
                         //contentTxtDatosSensores = "Sin deteccion de proximidad";
+                        speech.stop();
                     } else {
                         //Se detecto objeto
                         //Solicito datos de sensores a la placa y reproduzco audio con los datos
                         //contentTxtDatosSensores = "Light: 54612 lx\nTemperature: 24.70 °C\nAbsolute Pressure: 1017.34 mb\nRelative Pressure: 1242.51 mb\nHumidity: 51.70 %\n";
-                        bluetoothConectado.write("A\n".toString().getBytes());
-                        while(bluetoothConectado.contenido == ""){}
-                        speech.speak(bluetoothConectado.contenido, TextToSpeech.QUEUE_FLUSH,null,"");
-                        editTextDatosSensores.setText(bluetoothConectado.contenido);
-                        bluetoothConectado.contenido = "";
+                        if(bluetoothConectado != null) {
+                            bluetoothConectado.write("A\n".toString().getBytes());
+                            /*
+                            while (bluetoothConectado.contenido == "") {
+                            }
+                            */
+
+                            speech.stop();
+                            speech.setSpeechRate(1.0f);
+                            speech.setPitch(1.0f);
+                            speech.speak(bluetoothConectado.contenido, TextToSpeech.QUEUE_FLUSH, null, "");
+
+                            editTextDatosSensores.setText(bluetoothConectado.contenido);
+                            bluetoothConectado.contenido = "";
+                        }
                     }
                     break;
                 case Sensor.TYPE_ACCELEROMETER:
                     if(Math.abs(evento.values[0]) > 30|| Math.abs(evento.values[1]) > 30 || Math.abs(evento.values[2]) > 30){
-                        //En este caso al detectar shake solicito datos sensores a la placa y los muestro en el textarea
-                        bluetoothConectado.write("A\n".toString().getBytes());
-                        while(bluetoothConectado.contenido == ""){}
-                        editTextDatosSensores.setText(bluetoothConectado.contenido);
-                        bluetoothConectado.contenido = "";
+                        if(bluetoothConectado != null) {
+                            //En este caso al detectar shake solicito datos sensores a la placa y los muestro en el textarea
+                            bluetoothConectado.write("A\n".toString().getBytes());
+                            while (bluetoothConectado.contenido == "") {
+                            }
+                            editTextDatosSensores.setText(bluetoothConectado.contenido);
+                            bluetoothConectado.contenido = "";
+                        }
                     }
+                    break;
+                case Sensor.TYPE_LIGHT:
+
+                    if(sensorMovil && bluetoothConectado != null)
+                    {
+                        luz = evento.values[0];
+                        if(luz<Float.valueOf(editTextLimiteLuz.getText().toString())){
+                            if(ledApagado) {
+                                //Enciende Led
+                                bluetoothConectado.write("Z\n".toString().getBytes());
+                                ledApagado = false;
+                            }
+                        }else{
+                            if(!ledApagado) {
+                                //Apaga Led
+                                bluetoothConectado.write("z\n".toString().getBytes());
+                                ledApagado = true;
+                            }
+                        }
+                    }
+
                     break;
                 default:
                     break;
@@ -487,4 +583,18 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
     }
 
+    public void onPause(){
+        if(speech !=null){
+            speech.stop();
+        }
+        super.onPause();
+    }
+
+    public void onDestoy(){
+        if(speech !=null){
+            speech.stop();
+            speech.shutdown();
+        }
+        super.onDestroy();
+    }
 }

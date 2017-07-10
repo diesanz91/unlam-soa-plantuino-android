@@ -2,8 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.plantuino.unlam_soa.plantuino">
 
-    <uses-permission android:name="android.permission.BLUETOOTH"/>
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
     <application
         android:allowBackup="true"
@@ -12,14 +13,23 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name=".ManejadorBluetoothActivity" android:label="Plantuino - Bluetooth">
+        <activity
+            android:name=".ManejadorBluetoothActivity"
+            android:screenOrientation="portrait"
+            android:label="Plantuino - Bluetooth">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".MainActivity" android:label="Plantuino - Control">
-        </activity>
+        <activity
+            android:name=".MainActivity"
+            android:screenOrientation="portrait"
+            android:label="Plantuino - Control"></activity>
+        <activity android:name=".CalibracionLuz"
+            android:screenOrientation="portrait"
+            android:label="Plantuino - Configuracion"></activity>
     </application>
 
 </manifest>
